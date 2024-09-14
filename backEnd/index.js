@@ -10,7 +10,9 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-const uri = `mongodb://localhost:27017`;
+// const uri = `mongodb://localhost:27017`;
+const uri =
+  "mongodb+srv://photoserver:akash123@cluster0.tyigyp7.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
 // connect mongodb on server
 const client = new MongoClient(uri, {
@@ -64,6 +66,42 @@ async function run() {
         res.status(500).json({ error: "File upload failed" });
       }
     });
+
+    const fs = require("fs"); // File System module
+
+    // Add this route to delete a file by its filename
+    app.delete("/delete/:filename", async (req, res) => {
+      const filename = req.params.filename;
+      console.log(filename)
+
+      try {
+        // Find the file in MongoDB
+        const fileRecord = await dataCollection.findOne({ filename });
+
+        if (!fileRecord) {
+          return res.status(404).json({ error: "File not found" });
+        }
+
+        // Remove the file from the file system
+        const filePath = path.join(__dirname, "uploads", filename);
+        fs.unlink(filePath, async (err) => {
+          if (err) {
+            console.error("Error deleting file:", err);
+            return res.status(500).json({ error: "Error deleting file" });
+          }
+
+          // Remove the file's metadata from MongoDB
+          await dataCollection.deleteOne({ filename });
+
+          // Send success response
+          res.status(200).json({ message: "File deleted successfully" });
+        });
+      } catch (error) {
+        console.error("Error deleting file:", error);
+        res.status(500).json({ error: "Error deleting file" });
+      }
+    });
+
 
     // Serve uploaded files statically
     app.use("/uploads", express.static(path.join(__dirname, "uploads")));
